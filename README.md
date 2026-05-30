@@ -1,7 +1,7 @@
 # SLAMD - Benchmarking App
 
 1. [General Information](#general-information)
-2. [Sequential Learning](#sequential-learning)
+2. [MetaDesign Active Learning](#metadesign-active-learning)
 3. [Installation](#installation)
 4. [Starting the App](#starting-the-app)
 5. [Known Issues](#known-issues)
@@ -10,21 +10,21 @@
 
 ## General Information
 
-This repository supplements our app "SLAMD - Sequential Learning App for Materials Discovery".
+This repository supplements our app "SLAMD - MetaDesign Active Learning App for Materials Discovery".
 If you are interested in checking it out visit <https://github.com/BAMresearch/WEBSLAMD> and <https://slamd-demo.herokuapp.com/>
 
-Here we focus on evaluating Sequential Learning on various datasets from the literature. 
+Here we focus on evaluating MetaDesign Active Learning on various datasets from the literature.
 This is done using the notebook SequentialLearningApp.ipynb located inside the benchmarking folder.
 The main purpose is running experiments against known datasets and comparing results for various choices of AI algorithms
-and Sequential Learning parameters. The results are compared to baseline random draws. Further, in order to check the baseline
+and MetaDesign Active Learning parameters. The results are compared to baseline random draws. Further, in order to check the baseline
 performance of the various ML models, we evaluate R2 scores on all datasets  in a dedicated notebook, baseline_performance.ipynb.
 
 This app is based on Jupyter Notebooks in combination with the UI framework [Voilà](https://github.com/voila-dashboards/voila).
 The app runs as a webapp directly in the browser (details concerning the setup can be found below).
 
-## Sequential Learning
+## MetaDesign Active Learning
 
-Sequential Learning (SL) is frequently recognized as having great potential to accelerate materials research with a small number of highly
+MetaDesign Active Learning (AL) is frequently recognized as having great potential to accelerate materials research with a small number of highly
 complex data points. SL ranks the experiments based on their utility. This is done by coupling the predictions of a Machine Learning model with a
 decision rule that guides the experimental procedure. The underlying idea is that not all experiments are equally useful. Some experiments provide
 more information than others. In contrast to classical design of experiments (DOE), where (only) the experimental parameters are optimized,
@@ -85,7 +85,7 @@ Comma errors may occur when uploading Excel data. It is recommended to use the C
 If the number of targets is changed during benchmarking, the result plot may not appear. The results will still be saved to the results table,
 so there will be no loss of data.
 
-There is still a bug when running Sequential Learning with targets as well as a-priori information with the weight of the a-priori feature
+There is still a bug when running MetaDesign Active Learning with targets as well as a-priori information with the weight of the a-priori feature
 different from 1. For our benchmarking experiments we were looking at the case were all the weights are set to 1, so the corresponding
 results for these experiments are still reliable. Note however, that in the "Materials Discovery" part of our [main app](https://github.com/BAMresearch/WEBSLAMD) the issue is already fixed.
 Thus in case you want to extend this code and fix the bug, you might find our implementation in [WEBSLAMD](https://github.com/BAMresearch/WEBSLAMD) useful.
@@ -124,7 +124,7 @@ which are to be optimized.
 ### Benchmarking
 
 This window provides the core SL framework of our app. This allows you to assess the potential benefits of SLAMD for your application. It is divided into the
-tabs "Settings" - here the optimization scenario can be defined - and "Sequential Learning parameters" - here the algorithms can be selected, set and virtual experiments
+tabs "Settings" - here the optimization scenario can be defined - and "MetaDesign Active Learning parameters" - here the algorithms can be selected, set and virtual experiments
 can be performed.
 
 #### Configure Optimization
@@ -146,7 +146,7 @@ This makes it easy to check the plausibility of the above configuration.
 
 ![img.png](benchmarking/imgs/sl_config.png)
 
-#### Sequential Learning Parameters
+#### MetaDesign Active Learning Parameters
 
 The initial sample size and the batch size can be chosen here. Some SL algorithms require at least 3 samples. It is recommended to not choose less than 4 initial samples.
 
@@ -185,7 +185,7 @@ Choosing a better algorithm may improve the performance.
 The histogram below compares the performance in terms of experiments required in case of the SL algorithm vs a random process. SL is typically compared
 to a random process (RP) (i.e., without strategy or model) as a baseline benchmark. RPs consider each candidate as equally likely to succeed (uniform distribution).
 However, the success rate of RP has a nonlinear relationship with the required draws for the case of multiple targets
-(the size of the target set is controlled by the target threshold in the "Settings" tab of the "Sequential Learning" window). A low target threshold means that
+(the size of the target set is controlled by the target threshold in the "Settings" tab of the "MetaDesign Active Learning" window). A low target threshold means that
 RP becomes a much more difficult benchmark.
 
 ![img.png](benchmarking/imgs/live_plots.png)

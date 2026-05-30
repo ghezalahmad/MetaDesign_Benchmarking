@@ -187,7 +187,7 @@ document.getElementById('btn-plot').addEventListener('click', async () => {
     payload.hue  = document.getElementById('scatter-hue').value;
     payload.size = document.getElementById('scatter-size').value;
   } else {
-    payload.columns = Array.from(document.getElementById('multi-cols').selectedOptions).map(o => o.value);
+    payload.columns = getSelectedValues('multi-cols');
   }
 
   showSpinner('btn-plot');
@@ -294,7 +294,7 @@ function renderTargetControls(targList, containerId, prefix, withThreshold) {
       </div>` : '';
 
     div.innerHTML = `
-      <div class="col-label">${col}</div>
+      <div class="col-label"></div>
       <div class="d-flex align-items-center gap-3 flex-wrap">
         <div class="form-check form-check-inline mb-0">
           <input class="form-check-input" type="radio" name="${nameR}"
@@ -316,6 +316,7 @@ function renderTargetControls(targList, containerId, prefix, withThreshold) {
       </div>
       ${threshBlock}
     `;
+    div.querySelector('.col-label').textContent = col;
     // Wire up threshold checkbox toggle via event listener (safer than inline onchange)
     const uthEl = div.querySelector('[data-field="use-thresh"]');
     if (uthEl) {
@@ -532,7 +533,7 @@ document.getElementById('btn-run').addEventListener('click', async () => {
     document.getElementById('results-summary').classList.remove('d-none');
 
     // Save result row
-    if (lastResultRow) {
+    if (lastResultRow !== null) {
       const sr = await fetch('/api/save-result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -571,7 +572,9 @@ document.getElementById('btn-run').addEventListener('click', async () => {
       const d = JSON.parse(e.data);
       log('ERROR: ' + d.message, 'log-err');
       toast('SL error: ' + d.message.split('\n')[0], 'danger');
-    } catch {}
+    } catch (parseErr) {
+      log('SL connection error (unparseable event)', 'log-err');
+    }
     es.close();
     slRunning = false;
     hideSpinner('btn-run');

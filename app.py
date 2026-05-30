@@ -134,7 +134,7 @@ def data_info():
         df.info(buf=buf)
         html = f'<pre class="info-pre">{buf.getvalue()}</pre>'
     else:
-        html = ''
+        return jsonify(error=f'Unknown mode: {mode}'), 400
     return jsonify(html=html)
 
 
@@ -187,7 +187,7 @@ def plot():
         return jsonify(error=str(e)), 400
 
 
-# ── Sequential Learning ───────────────────────────────────────────────────────
+# ── MetaDesign Active Learning ────────────────────────────────────────────────
 
 @app.route('/api/start-sl', methods=['POST'])
 def start_sl():
@@ -224,9 +224,11 @@ def run_sl_sse():
                     yield f'event: final\ndata: {json.dumps(data)}\n\n'
                 elif kind == 'done':
                     yield f'event: done\ndata: {{}}\n\n'
+                    SL_QUEUES.pop(sid, None)
                     break
                 elif kind == 'error':
                     yield f'event: error\ndata: {json.dumps({"message": str(data)})}\n\n'
+                    SL_QUEUES.pop(sid, None)
                     break
                 else:
                     yield f'event: {kind}\ndata: {json.dumps(data)}\n\n'
@@ -315,7 +317,7 @@ def _comparison_histogram(all_sl: dict):
                     range=(1, max_v + 1), color=colors[i % len(colors)])
     ax.set_xlabel('Number of required experiments to find target')
     ax.set_ylabel('Frequency')
-    ax.set_title('Model Comparison — Experiments Required (SL)')
+    ax.set_title('Model Comparison — Experiments Required')
     ax.legend(fontsize=8)
     plt.tight_layout()
     return fig
@@ -336,6 +338,7 @@ def run_compare_sse():
                 kind, data = q.get(timeout=600)
                 if kind == 'done':
                     yield f'event: done\ndata: {{}}\n\n'
+                    SL_QUEUES.pop(key, None)
                     break
                 else:
                     yield f'event: {kind}\ndata: {json.dumps(data)}\n\n'
@@ -400,7 +403,7 @@ def download_pdf():
         # Summary page
         fig, ax = plt.subplots(figsize=(11, 8.5))
         ax.axis('off')
-        title = (f"Sequential Learning Report\n"
+        title = (f"MetaDesign Active Learning Report\n"
                  f"{result_row.get('Algorithm', '')}  |  {result_row.get('Utility function', '')}")
         ax.text(0.05, 0.97, title, fontsize=15, fontweight='bold',
                 transform=ax.transAxes, va='top')
@@ -435,8 +438,8 @@ def download_pdf():
                               fontsize=14, pad=10)
                 pdf.savefig(fig2, bbox_inches='tight')
                 plt.close(fig2)
-            except Exception:
-                pass
+            except Exception as e:
+                app.logger.warning('PDF: skipped plot %s: %s', key_name, e)
 
     buf.seek(0)
     return send_file(buf, mimetype='application/pdf',

@@ -1,7 +1,7 @@
 """
-Sequential Learning Engine
---------------------------
-Pure-Python SL logic, decoupled from ipywidgets.
+MetaDesign Active Learning Engine
+----------------------------------
+Pure-Python active learning logic, decoupled from ipywidgets.
 """
 import io, base64, warnings
 import numpy as np
@@ -120,7 +120,7 @@ class _LoloWrapper:
 
 class SequentialLearner:
     """
-    Benchmarks sequential learning vs random search on a provided dataset.
+    Benchmarks MetaDesign Active Learning vs random search on a provided dataset.
 
     Call run(queue) in a background thread; it pushes SSE-style events.
     """
@@ -304,11 +304,7 @@ class SequentialLearner:
         m    = self.model_name
 
         if m == 'Gaussian Process Regression':
-            kernel = ConstantKernel(1.0, (1e-3, 1e3)) * RBF(10, (1e-2, 1e2))
-            gp = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=3)
-            gp.fit(X_tr, y_tr)
-            mn, sd = gp.predict(X_pr, return_std=True)
-            return mn.ravel(), sd.ravel()
+            return self._fit_gp_plain(X_tr, y_tr, X_pr)
 
         elif m == 'Lolo Random Forest':
             if not LOLO_AVAILABLE:
@@ -398,7 +394,7 @@ class SequentialLearner:
         elif self.strategy == 'Thompson Sampling':
             acq = self._rng.normal(combined, np.abs(std) + 1e-9)
         else:
-            acq = combined
+            raise ValueError(f'Unknown acquisition strategy: {self.strategy}')
         if feasible is not None:
             acq = np.where(feasible, acq, -np.inf)
         return int(np.argmax(acq))
@@ -518,7 +514,7 @@ class SequentialLearner:
                         ft_vals   = np.delete(ft_vals,   bi)
                         feas_pred = np.delete(feas_pred, bi)
 
-                    if len(pred) == 0:
+                    if len(pred) == 0 or any(s in target_set for s in samp):
                         break
 
                     X_tr = feat_std.iloc[samp].values
@@ -569,8 +565,8 @@ class SequentialLearner:
                         _, p_wilcoxon = sp_wilcoxon(sl_w[:n_p], rand_w[:n_p], alternative='less')
                     else:
                         p_wilcoxon = 1.0
-                except Exception:
-                    pass
+                except Exception as wilcox_err:
+                    queue.put(('warning', f'Wilcoxon test failed: {wilcox_err}'))
 
             final_plots = self._plot_final(
                 all_dist, all_perf, all_tprog, all_fprog,
@@ -600,6 +596,20 @@ class SequentialLearner:
             queue.put(('error', str(exc) + '\n\n' + traceback.format_exc()))
 
     # ── Plotting helpers ───────────────────────────────────────────────────────
+
+    def _fill_histogram(self, ax, valid_sl, valid_rand, annotation=None):
+        max_v = max(max(valid_rand, default=1), max(valid_sl, default=1))
+        bins  = max(10, int(max_v / 5))
+        ax.hist(valid_rand, alpha=0.4, label='Random Process', color='steelblue',
+                range=(1, max_v + 1), bins=bins)
+        ax.hist(valid_sl, alpha=0.4, label='MetaDesign Active Learning', color='darkorange',
+                range=(1, max_v + 1), bins=bins)
+        ax.set_xlabel('Number of required Experiments')
+        ax.set_ylabel('Frequency')
+        ax.set_title(f'Performance histogram — {self.model_name}  |  {self.strategy}')
+        ax.legend()
+        if annotation:
+            ax.text(0.02, 0.95, annotation, transform=ax.transAxes, fontsize=10, va='top')
 
     def _plot_live(self, distances, perfs, targ_q_t, tries_sl, tries_rand, current_run):
         valid_sl   = tries_sl[~np.isnan(tries_sl)]
@@ -632,18 +642,8 @@ class SequentialLearner:
         ax1.legend()
 
         if ax2 is not None and len(valid_sl) > 0:
-            max_v = max(max(valid_rand, default=1), max(valid_sl, default=1))
-            bins  = max(10, int(max_v / 5))
-            ax2.hist(valid_rand, alpha=0.4, label='Random Process', color='steelblue',
-                     range=(1, max_v + 1), bins=bins)
-            ax2.hist(valid_sl,   alpha=0.4, label='SL',             color='darkorange',
-                     range=(1, max_v + 1), bins=bins)
-            ax2.set_xlabel('Number of required Experiments')
-            ax2.set_ylabel('Frequency')
-            ax2.set_title(f'Performance histogram — {self.model_name}  |  {self.strategy}')
-            ax2.legend()
-            ax2.text(0.02, 0.95, f'iteration {current_run}',
-                     transform=ax2.transAxes, fontsize=10, va='top')
+            self._fill_histogram(ax2, valid_sl, valid_rand,
+                                 annotation=f'iteration {current_run}')
 
         fig.suptitle(f'{self.model_name}  |  {self.strategy}  —  Run {current_run}/{self.n_runs}',
                      fontweight='bold', fontsize=13)
@@ -659,16 +659,7 @@ class SequentialLearner:
 
         # ── Performance histogram ──────────────────────────────────────────────
         fig_h, ax = plt.subplots(figsize=(12, 5))
-        max_v = max(max(valid_rand, default=1), max(valid_sl, default=1))
-        bins  = max(10, int(max_v / 5))
-        ax.hist(valid_rand, alpha=0.4, label='Random Process', color='steelblue',
-                range=(1, max_v + 1), bins=bins)
-        ax.hist(valid_sl,   alpha=0.4, label='SL',             color='darkorange',
-                range=(1, max_v + 1), bins=bins)
-        ax.set_xlabel('Number of required Experiments')
-        ax.set_ylabel('Frequency')
-        ax.set_title(f'Performance histogram — {self.model_name}  |  {self.strategy}')
-        ax.legend()
+        self._fill_histogram(ax, valid_sl, valid_rand)
         plt.tight_layout()
         plots['histogram'] = _fig_to_b64(fig_h)
 
