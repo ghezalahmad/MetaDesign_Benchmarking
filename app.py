@@ -17,7 +17,8 @@ import seaborn as sns
 from flask import (Flask, render_template, request, jsonify,
                    Response, session, send_file)
 
-from sl_engine import SequentialLearner, MODELS, STRATEGIES, _fig_to_b64
+from sl_engine import SequentialLearner, MODELS, ML_MODELS, LLM_MODELS, STRATEGIES, _fig_to_b64
+from llm_surrogate import LLMConfig
 
 warnings.filterwarnings('ignore')
 
@@ -42,6 +43,19 @@ def _df(sid=None) -> pd.DataFrame | None:
 
 def _engine_kwargs(d: dict, model_name: str | None = None) -> dict:
     """Build SequentialLearner kwargs from a request payload dict."""
+    resolved_model = model_name or d.get('model', 'Gaussian Process Regression')
+
+    llm_config = None
+    if resolved_model in LLM_MODELS and d.get('llm_api_key'):
+        llm_config = LLMConfig(
+            provider         = d.get('llm_provider', 'anthropic'),
+            model            = d.get('llm_model', '') or '',
+            api_key          = d.get('llm_api_key', ''),
+            llm_weight       = float(d.get('llm_weight', 0.5)),
+            max_context_rows = int(d.get('llm_max_context', 25)),
+            max_candidate_batch = int(d.get('llm_max_batch', 40)),
+        )
+
     return dict(
         features              = d.get('features', []),
         targets               = d.get('targets',  []),
@@ -57,9 +71,10 @@ def _engine_kwargs(d: dict, model_name: str | None = None) -> dict:
         batch_size            = int(d.get('batch_size', 1)),
         n_runs                = int(d.get('n_runs', 25)),
         sigma                 = float(d.get('sigma', 2.0)),
-        model_name            = model_name or d.get('model', 'Gaussian Process Regression'),
+        model_name            = resolved_model,
         strategy              = d.get('strategy', 'MEI (exploit)'),
         random_seed           = int(d['random_seed']) if d.get('random_seed') not in (None, '') else None,
+        llm_config            = llm_config,
     )
 
 
@@ -67,7 +82,8 @@ def _engine_kwargs(d: dict, model_name: str | None = None) -> dict:
 
 @app.route('/')
 def index():
-    return render_template('index.html', models=MODELS, strategies=STRATEGIES)
+    return render_template('index.html', models=MODELS, strategies=STRATEGIES,
+                           llm_models=LLM_MODELS)
 
 
 # ── Upload ────────────────────────────────────────────────────────────────────
@@ -187,6 +203,22 @@ def plot():
         return jsonify(error=str(e)), 400
 
 
+# ── LLM Validation ────────────────────────────────────────────────────────────
+
+@app.route('/api/validate-llm', methods=['POST'])
+def validate_llm():
+    d = request.json or {}
+    api_key  = d.get('api_key', '')
+    provider = d.get('provider', 'anthropic')
+    model    = d.get('model', '')
+    if not api_key:
+        return jsonify(ok=False, message='No API key provided.'), 400
+    cfg = LLMConfig(provider=provider, model=model, api_key=api_key)
+    from llm_surrogate import LLMSurrogate
+    ok, msg = LLMSurrogate(cfg, []).validate_connection()
+    return jsonify(ok=ok, message=msg)
+
+
 # ── MetaDesign Active Learning ────────────────────────────────────────────────
 
 @app.route('/api/start-sl', methods=['POST'])
@@ -199,6 +231,10 @@ def start_sl():
     d = request.json or {}
     if not d.get('features') or not d.get('targets'):
         return jsonify(error='Please select features and targets'), 400
+
+    model_name = d.get('model', 'Gaussian Process Regression')
+    if model_name in LLM_MODELS and not d.get('llm_api_key'):
+        return jsonify(error='An LLM API key is required for LLM-based models.'), 400
 
     engine = SequentialLearner(df=df, **_engine_kwargs(d))
     q = Queue()
@@ -252,7 +288,11 @@ def start_compare():
     if not d.get('features') or not d.get('targets'):
         return jsonify(error='Please select features and targets'), 400
 
-    models_to_compare = d.get('models_to_compare') or MODELS
+    has_llm = bool(d.get('llm_api_key'))
+    all_models = d.get('models_to_compare') or MODELS
+    models_to_compare = [m for m in all_models if has_llm or m not in LLM_MODELS]
+    if not models_to_compare:
+        return jsonify(error='No models selected for comparison.'), 400
     q = Queue()
     SL_QUEUES[sid + '_cmp'] = q
     threading.Thread(target=_run_comparison, args=(df, d, models_to_compare, q),

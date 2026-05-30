@@ -2,6 +2,11 @@
 MetaDesign Active Learning Engine
 ----------------------------------
 Pure-Python active learning logic, decoupled from ipywidgets.
+
+Surrogate portfolio:
+  Traditional ML  — GP, Lolo RF, PCA variants, tuned variants, Decision Trees
+  LLM-Only        — In-context learning via Claude or GPT-4 (no ML involved)
+  Hybrid          — GP/RF posterior blended with LLM prior
 """
 import io, base64, warnings
 import numpy as np
@@ -35,7 +40,11 @@ try:
 except ImportError:
     LOLO_AVAILABLE = False
 
-MODELS = [
+from llm_surrogate import LLMConfig, LLMSurrogate  # noqa: E402  (always available)
+
+# ── Model registry ─────────────────────────────────────────────────────────────
+
+ML_MODELS = [
     'Gaussian Process Regression',
     'Lolo Random Forest',
     'Gauss with PCA',
@@ -45,6 +54,15 @@ MODELS = [
     'Decision Trees',
     'Random Forest (scikit)',
 ]
+
+LLM_MODELS = [
+    'LLM-Only (Claude)',
+    'LLM-Only (GPT-4)',
+    'Hybrid: GP + LLM',
+    'Hybrid: RF + LLM',
+]
+
+MODELS = ML_MODELS + LLM_MODELS
 
 STRATEGIES = [
     'MEI (exploit)',
@@ -145,6 +163,7 @@ class SequentialLearner:
         model_name: str,
         strategy: str,
         random_seed: int | None = None,
+        llm_config: LLMConfig | None = None,
     ):
         # Drop rows with NaN in any relevant column — they can't be trained on or used as targets.
         relevant_cols = list(dict.fromkeys(features + targets + fixed_targets))
@@ -168,6 +187,11 @@ class SequentialLearner:
         self.strategy = strategy
         self.random_seed = random_seed
         self._rng = np.random.default_rng(random_seed)
+        # LLM surrogate — instantiated once per engine, shared across all runs
+        # (the per-prompt cache lives inside it)
+        self._llm: LLMSurrogate | None = (
+            LLMSurrogate(llm_config, features) if llm_config else None
+        )
 
     # ── Data prep ──────────────────────────────────────────────────────────────
 
@@ -367,6 +391,18 @@ class SequentialLearner:
         elif m == 'Random Forest (scikit)':
             return _jackknife_predict(lambda: SKRFR(n_estimators=10), X_tr, y_tr, X_pr)
 
+        elif m == 'LLM-Only (Claude)':
+            return self._fit_llm(X_tr, y_tr, X_pr)
+
+        elif m == 'LLM-Only (GPT-4)':
+            return self._fit_llm(X_tr, y_tr, X_pr)
+
+        elif m == 'Hybrid: GP + LLM':
+            return self._fit_hybrid(X_tr, y_tr, X_pr, ml_base='gp')
+
+        elif m == 'Hybrid: RF + LLM':
+            return self._fit_hybrid(X_tr, y_tr, X_pr, ml_base='rf')
+
         raise ValueError(f'Unknown model: {m}')
 
     def _fit_gp_plain(self, X_tr, y_tr, X_pr):
@@ -375,6 +411,75 @@ class SequentialLearner:
         gp.fit(X_tr, y_tr.ravel())
         mn, sd = gp.predict(X_pr, return_std=True)
         return mn.ravel(), sd.ravel()
+
+    # ── LLM surrogate methods ──────────────────────────────────────────────────
+
+    def _fit_llm(self, X_tr, y_tr, X_pr):
+        """LLM-Only surrogate: the LLM scores every candidate via in-context learning."""
+        if self._llm is None:
+            raise RuntimeError(
+                'LLM configuration required for LLM-Only mode. '
+                'Provide an API key in the LLM Configuration panel.')
+        return self._llm.predict(X_tr, y_tr.reshape(-1, 1), X_pr)
+
+    def _fit_hybrid(self, X_tr, y_tr, X_pr, ml_base='gp'):
+        """
+        Hybrid surrogate: ML scores all candidates; LLM is queried for the
+        top-K by GP-UCB (one batch per iteration), then blended.
+
+        Blending uses re-scaling so both components are in the same numerical
+        range before alpha-weighted combination.
+        """
+        # Step 1: ML posterior on all candidates
+        if ml_base == 'gp':
+            mean_ml, std_ml = self._fit_gp_plain(X_tr, y_tr, X_pr)
+        else:
+            mean_ml, std_ml = _jackknife_predict(
+                lambda: SKRFR(n_estimators=10), X_tr, y_tr, X_pr)
+
+        if self._llm is None or not self._llm.config.is_configured():
+            return mean_ml, std_ml  # no LLM config → pure ML fallback
+
+        alpha = float(np.clip(self._llm.config.llm_weight, 0.0, 1.0))
+
+        # Step 2: Select top-K candidates by GP-UCB for LLM evaluation
+        k = min(self._llm.config.max_candidate_batch, len(X_pr))
+        ucb = mean_ml + 2.0 * std_ml
+        top_k = np.argsort(ucb)[-k:][::-1]   # indices into X_pr
+        X_top = X_pr[top_k]
+
+        # Step 3: LLM predictions on top-K only
+        try:
+            mean_llm_top, std_llm_top = self._llm.predict(
+                X_tr, y_tr.reshape(-1, 1), X_top)
+        except Exception as exc:
+            warnings.warn(f'LLM predict failed ({exc}), using ML-only for this iteration.')
+            return mean_ml, std_ml
+
+        # Step 4: Re-scale LLM output to ML numerical range
+        ml_top_mean = mean_ml[top_k]
+        ml_top_std  = std_ml[top_k]
+
+        if mean_llm_top.std() > 1e-9 and ml_top_mean.std() > 1e-9:
+            mean_llm_scaled = (
+                (mean_llm_top - mean_llm_top.mean()) / mean_llm_top.std()
+                * ml_top_mean.std() + ml_top_mean.mean()
+            )
+        else:
+            mean_llm_scaled = mean_llm_top
+
+        if std_llm_top.mean() > 1e-9 and ml_top_std.mean() > 1e-9:
+            std_llm_scaled = std_llm_top * (ml_top_std.mean() / std_llm_top.mean())
+        else:
+            std_llm_scaled = std_llm_top
+
+        # Step 5: Blend
+        mean_out      = mean_ml.copy()
+        std_out       = std_ml.copy()
+        mean_out[top_k] = (1 - alpha) * ml_top_mean  + alpha * mean_llm_scaled
+        std_out[top_k]  = (1 - alpha) * ml_top_std   + alpha * std_llm_scaled
+
+        return mean_out, std_out
 
     # ── Acquisition ────────────────────────────────────────────────────────────
 
@@ -416,6 +521,22 @@ class SequentialLearner:
                 queue.put(('warning',
                     f'{self.model_name} requires lolopy + mlxtend (not installed) — '
                     f'results will use Gaussian Process Regression instead.'))
+
+            # LLM mode warnings & connection check
+            if self.model_name in LLM_MODELS:
+                if self._llm is None or not self._llm.config.is_configured():
+                    queue.put(('error',
+                        f'{self.model_name} requires a valid LLM API key. '
+                        f'Configure it in the LLM Configuration panel.'))
+                    return
+                queue.put(('info',
+                    f'LLM mode active — {self._llm.config.display_name}. '
+                    f'Each iteration may take several seconds due to API calls.'))
+                ok, msg = self._llm.validate_connection()
+                if not ok:
+                    queue.put(('error', f'LLM connection failed: {msg}'))
+                    return
+                queue.put(('info', f'LLM connection verified: {msg}'))
 
             feat_std, target_sum, combined_sum, target_idxs, sample_pool, targ_q_t, df_std = self._prepare()
 

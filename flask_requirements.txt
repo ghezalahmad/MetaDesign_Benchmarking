@@ -8,3 +8,6 @@ matplotlib>=3.6
 mlxtend>=0.21
 # Optional — needs Java:
 # lolopy>=2.0
+# Optional — LLM surrogate modes (install at least one):
+# anthropic>=0.30    # for LLM-Only (Claude) and Hybrid: GP/RF + LLM
+# openai>=1.0        # for LLM-Only (GPT-4)

@@ -359,7 +359,8 @@ function collectBenchConfig() {
   const tCtrl  = readControls('targ-controls',       targets,      'target');
   const ftCtrl = readControls('fixed-targ-controls', fixedTargets, 'fixed');
 
-  return {
+  const selectedModel = document.getElementById('model-sel').value;
+  const cfg = {
     features,
     targets,
     fixed_targets:           fixedTargets,
@@ -374,10 +375,22 @@ function collectBenchConfig() {
     batch_size:        parseInt(document.getElementById('batch-size').value),
     n_runs:            parseInt(document.getElementById('sl-runs').value),
     sigma:             parseFloat(document.getElementById('sigma-slider').value),
-    model:             document.getElementById('model-sel').value,
+    model:             selectedModel,
     strategy:          document.getElementById('strategy-sel').value,
     random_seed:       seedRaw !== '' ? parseInt(seedRaw) : null,
   };
+
+  // Append LLM config when an LLM-based model is selected
+  if (_isLLMModel(selectedModel)) {
+    cfg.llm_provider    = document.querySelector('input[name="llm-provider"]:checked')?.value || 'anthropic';
+    cfg.llm_api_key     = document.getElementById('llm-api-key').value.trim();
+    cfg.llm_model       = document.getElementById('llm-model').value.trim();
+    cfg.llm_weight      = parseFloat(document.getElementById('llm-weight').value);
+    cfg.llm_max_context = parseInt(document.getElementById('llm-max-context').value) || 25;
+    cfg.llm_max_batch   = parseInt(document.getElementById('llm-max-batch').value)   || 40;
+  }
+
+  return cfg;
 }
 
 // ── Target quantile slider ────────────────────────────────────────────────
@@ -403,6 +416,68 @@ document.getElementById('strategy-sel').addEventListener('change', function () {
   document.getElementById('sigma-container').style.opacity = (usesSigma || usesEI) ? '1' : '.35';
   const lbl = v.includes('UCB') ? 'κ (UCB)' : v.includes('EI') ? 'ξ (EI xi)' : 'σ';
   document.getElementById('sigma-label').textContent = lbl;
+});
+
+// ── LLM config visibility ─────────────────────────────────────────────────
+function _isLLMModel(name) {
+  return (typeof LLM_MODEL_NAMES !== 'undefined') && LLM_MODEL_NAMES.includes(name);
+}
+function _isHybridModel(name) {
+  return name.startsWith('Hybrid');
+}
+
+document.getElementById('model-sel').addEventListener('change', function () {
+  const v       = this.value;
+  const isLLM   = _isLLMModel(v);
+  const isHybrid = _isHybridModel(v);
+  document.getElementById('llm-config-card').classList.toggle('d-none', !isLLM);
+  document.getElementById('llm-weight-row').classList.toggle('d-none', !isHybrid);
+});
+
+// Auto-fill default model name when provider changes
+document.querySelectorAll('input[name="llm-provider"]').forEach(radio => {
+  radio.addEventListener('change', function () {
+    const modelInput = document.getElementById('llm-model');
+    const defaults   = { anthropic: 'claude-sonnet-4-6', openai: 'gpt-4o' };
+    // Only overwrite if empty or a known default (don't clobber custom entries)
+    const knownDefaults = Object.values(defaults);
+    if (!modelInput.value || knownDefaults.includes(modelInput.value)) {
+      modelInput.value = defaults[this.value] || '';
+    }
+  });
+});
+
+// LLM blend weight slider
+document.getElementById('llm-weight').addEventListener('input', function () {
+  document.getElementById('llm-weight-val').textContent = parseFloat(this.value).toFixed(2);
+});
+
+// ── LLM validate button ───────────────────────────────────────────────────
+document.getElementById('btn-validate-llm').addEventListener('click', async () => {
+  const key      = document.getElementById('llm-api-key').value.trim();
+  const provider = document.querySelector('input[name="llm-provider"]:checked')?.value || 'anthropic';
+  const model    = document.getElementById('llm-model').value.trim();
+  const statusEl = document.getElementById('llm-validate-status');
+
+  if (!key) { toast('Enter an API key first.', 'warning'); return; }
+  statusEl.textContent = 'Validating…';
+  statusEl.className   = 'small text-muted';
+
+  try {
+    const r = await fetch('/api/validate-llm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: key, provider, model }),
+    });
+    const d = await r.json();
+    statusEl.textContent = d.message;
+    statusEl.className   = d.ok ? 'small text-success' : 'small text-danger';
+    if (d.ok) toast('LLM connection verified!', 'success');
+    else      toast('LLM connection failed: ' + d.message, 'danger');
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.className   = 'small text-danger';
+  }
 });
 
 // ── Show Target Data ──────────────────────────────────────────────────────
