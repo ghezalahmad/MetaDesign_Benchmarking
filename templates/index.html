@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Meta-Design Benchmarking</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+
+<!-- ── Navbar ─────────────────────────────────────────────────────────────── -->
+<nav class="navbar navbar-dark">
+  <div class="container-fluid">
+    <span class="navbar-brand mb-0 h1">
+      <i class="bi bi-cpu me-2"></i>Meta-Design Benchmarking
+    </span>
+    <span class="navbar-text text-light opacity-75 small">Sequential Learning Platform</span>
+  </div>
+</nav>
+
+<!-- ── Tab Nav ────────────────────────────────────────────────────────────── -->
+<div class="tab-bar">
+  <div class="container-fluid">
+    <ul class="nav nav-tabs border-0" id="mainTabs">
+      <li class="nav-item">
+        <a class="nav-link active" data-tab="upload">
+          <i class="bi bi-folder2-open me-1"></i>Upload
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="info">
+          <i class="bi bi-search me-1"></i>Data Info
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="explore">
+          <i class="bi bi-bar-chart-line me-1"></i>Design Space Explorer
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" data-tab="bench">
+          <i class="bi bi-robot me-1"></i>Benchmarking
+        </a>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<div class="container-fluid main-content">
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TAB 1 — UPLOAD
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-upload" class="tab-panel active">
+  <div class="row g-3">
+    <div class="col-lg-5">
+
+      <!-- File Selection -->
+      <div class="card mb-3">
+        <div class="card-header section-header">
+          <i class="bi bi-file-earmark-arrow-up me-2"></i>File Selection
+        </div>
+        <div class="card-body">
+          <div id="drop-zone" class="drop-zone">
+            <i class="bi bi-cloud-upload display-5 text-muted"></i>
+            <p class="mt-2 mb-1 fw-semibold">Drag &amp; drop a CSV or Excel file</p>
+            <p class="small text-muted mb-2">or click to browse</p>
+            <input type="file" id="file-input" accept=".csv,.xlsx,.xls" class="d-none"/>
+            <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('file-input').click()">
+              Browse
+            </button>
+          </div>
+          <div id="file-name" class="mt-2 small text-muted"></div>
+        </div>
+      </div>
+
+      <!-- Delimiter -->
+      <div class="card mb-3">
+        <div class="card-header section-header collapsed-header" data-bs-toggle="collapse" data-bs-target="#delimCollapse">
+          <i class="bi bi-sliders me-2"></i>Delimiter Settings
+          <i class="bi bi-chevron-down ms-auto float-end"></i>
+        </div>
+        <div class="collapse show" id="delimCollapse">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-sm-4">
+                <label class="form-label fw-semibold small">Separator</label>
+                <div id="sep-options">
+                  <div class="form-check"><input class="form-check-input" type="radio" name="sep" value="," checked/><label class="form-check-label">, (comma)</label></div>
+                  <div class="form-check"><input class="form-check-input" type="radio" name="sep" value=";"/><label class="form-check-label">; (semicolon)</label></div>
+                  <div class="form-check"><input class="form-check-input" type="radio" name="sep" value=" "/><label class="form-check-label">· (space)</label></div>
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label fw-semibold small">Decimal</label>
+                <div id="dec-options">
+                  <div class="form-check"><input class="form-check-input" type="radio" name="decimal" value="." checked/><label class="form-check-label">. (dot)</label></div>
+                  <div class="form-check"><input class="form-check-input" type="radio" name="decimal" value=","/><label class="form-check-label">, (comma)</label></div>
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <label class="form-label fw-semibold small">Eraser</label>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="erase-tab" checked/><label class="form-check-label">tab</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="erase-quote"/><label class="form-check-label">"</label></div>
+                <div class="form-check"><input class="form-check-input" type="checkbox" id="erase-pct"/><label class="form-check-label">%</label></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skip Rows -->
+      <div class="card mb-3">
+        <div class="card-header section-header collapsed-header" data-bs-toggle="collapse" data-bs-target="#skipCollapse">
+          <i class="bi bi-skip-forward me-2"></i>Skip Rows
+          <i class="bi bi-chevron-down ms-auto float-end"></i>
+        </div>
+        <div class="collapse" id="skipCollapse">
+          <div class="card-body">
+            <label class="form-label small">Number of rows to skip: <strong id="skip-val">0</strong></label>
+            <input type="range" class="form-range" id="skip-rows" min="0" max="20" value="0"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="d-grid gap-2 d-sm-flex">
+        <button class="btn btn-info flex-fill" id="btn-preview">
+          <i class="bi bi-eye me-1"></i>Preview
+        </button>
+        <button class="btn btn-success flex-fill" id="btn-upload">
+          <i class="bi bi-check-lg me-1"></i>Upload
+        </button>
+      </div>
+    </div>
+
+    <!-- Preview panel -->
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header section-header"><i class="bi bi-table me-2"></i>Data Preview</div>
+        <div class="card-body table-scroll" id="upload-preview">
+          <p class="text-muted text-center mt-4">Upload a file to preview data here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /tab-upload -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TAB 2 — DATA INFO
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-info" class="tab-panel">
+  <div class="row mb-3">
+    <div class="col-auto">
+      <div class="btn-group" role="group">
+        <button class="btn btn-warning active-info-btn" data-mode="preview">
+          <i class="bi bi-search me-1"></i>Preview
+        </button>
+        <button class="btn btn-warning" data-mode="stats">
+          <i class="bi bi-speedometer2 me-1"></i>Stats
+        </button>
+        <button class="btn btn-warning" data-mode="info">
+          <i class="bi bi-info-circle me-1"></i>Info
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body table-scroll" id="info-content">
+      <p class="text-muted text-center mt-4">Upload data first, then select a view mode above.</p>
+    </div>
+  </div>
+</div><!-- /tab-info -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TAB 3 — DESIGN SPACE EXPLORER
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-explore" class="tab-panel">
+  <div class="row g-3">
+    <div class="col-lg-4">
+      <div class="card mb-3">
+        <div class="card-header section-header"><i class="bi bi-palette me-2"></i>Plot Options</div>
+        <div class="card-body">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Graph Type</label>
+            <select class="form-select" id="graph-type">
+              <option value="">— Choose graph type —</option>
+              <option value="Scatter">Scatter</option>
+              <option value="Scatter Matrix">Scatter Matrix</option>
+              <option value="Correlation Heatmap">Correlation Heatmap</option>
+            </select>
+          </div>
+
+          <!-- Scatter options -->
+          <div id="scatter-opts" class="d-none">
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">X Axis</label>
+              <select class="form-select form-select-sm" id="scatter-x"></select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Y Axis</label>
+              <select class="form-select form-select-sm" id="scatter-y"></select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Hue (optional)</label>
+              <select class="form-select form-select-sm" id="scatter-hue"></select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Size (optional)</label>
+              <select class="form-select form-select-sm" id="scatter-size"></select>
+            </div>
+          </div>
+
+          <!-- Multi-select for matrix/heatmap -->
+          <div id="multisel-opts" class="d-none">
+            <label class="form-label small fw-semibold">Select Columns</label>
+            <div class="small text-muted mb-1">Hold Ctrl / ⌘ to select multiple</div>
+            <select class="form-select" id="multi-cols" multiple size="10"></select>
+          </div>
+
+          <div class="d-grid mt-3">
+            <button class="btn btn-warning" id="btn-plot">
+              <i class="bi bi-bar-chart-line me-1"></i>Plot
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-8">
+      <div class="card">
+        <div class="card-header section-header"><i class="bi bi-graph-up me-2"></i>Chart</div>
+        <div class="card-body text-center" id="plot-output">
+          <p class="text-muted mt-4">Configure options and click Plot.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /tab-explore -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TAB 4 — BENCHMARKING
+═══════════════════════════════════════════════════════════════════════════ -->
+<div id="tab-bench" class="tab-panel">
+
+  <!-- Sub-accordion -->
+  <div class="accordion" id="benchAccordion">
+
+    <!-- ── Section A: Configure Optimization ───────────────────────────── -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button" type="button"
+                data-bs-toggle="collapse" data-bs-target="#accA">
+          <i class="bi bi-gear me-2"></i>Configure Optimization
+        </button>
+      </h2>
+      <div id="accA" class="accordion-collapse collapse show" data-bs-parent="#benchAccordion">
+        <div class="accordion-body">
+          <div class="row g-3">
+
+            <!-- Features -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-input-cursor me-1"></i>Materials Data (Input Features)
+              </label>
+              <div class="small text-muted mb-1">Hold Ctrl / ⌘ to select multiple</div>
+              <select id="feat-sel" class="form-select" multiple size="10"></select>
+            </div>
+
+            <!-- Targets -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-bullseye me-1"></i>Target Properties
+              </label>
+              <div class="small text-muted mb-1">Hold Ctrl / ⌘ to select multiple</div>
+              <select id="targ-sel" class="form-select" multiple size="10"></select>
+              <div id="targ-controls" class="mt-2"></div>
+            </div>
+
+            <!-- Fixed targets -->
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">
+                <i class="bi bi-lock me-1"></i>A-priori Information
+              </label>
+              <div class="small text-muted mb-1">Hold Ctrl / ⌘ to select multiple</div>
+              <select id="fixed-targ-sel" class="form-select" multiple size="10"></select>
+              <div id="fixed-targ-controls" class="mt-2"></div>
+            </div>
+
+          </div>
+
+          <!-- Target quantile + preview -->
+          <div class="row mt-3 g-2 align-items-end">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold small">
+                Target Quantile: <strong id="tq-val">95</strong>%
+              </label>
+              <input type="range" class="form-range" id="target-quantile" min="1" max="100" value="95"/>
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-success w-100" id="btn-show-ds">
+                <i class="bi bi-eye me-1"></i>Show Target Data
+              </button>
+            </div>
+          </div>
+
+          <div id="target-preview-area" class="mt-3 d-none">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span class="badge bg-success fs-6" id="target-count-badge">0 target rows</span>
+            </div>
+            <div class="table-scroll" id="target-preview-table"></div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- /accA -->
+
+    <!-- ── Section B: Sequential Learning Config ────────────────────────── -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#accB">
+          <i class="bi bi-sliders2 me-2"></i>Sequential Learning
+        </button>
+      </h2>
+      <div id="accB" class="accordion-collapse collapse" data-bs-parent="#benchAccordion">
+        <div class="accordion-body">
+
+          <div class="row g-3">
+            <div class="col-sm-6 col-md-3">
+              <label class="form-label fw-semibold small"># of SL Runs: <strong id="runs-val">25</strong></label>
+              <input type="range" class="form-range" id="sl-runs" min="1" max="100" value="25"/>
+            </div>
+            <div class="col-sm-6 col-md-3">
+              <label class="form-label fw-semibold small">Initial Sample Size</label>
+              <input type="number" class="form-control" id="init-sample" value="4" min="2" max="100"/>
+            </div>
+            <div class="col-sm-6 col-md-3">
+              <label class="form-label fw-semibold small">Batch Size</label>
+              <input type="number" class="form-control" id="batch-size" value="1" min="1" max="20"/>
+            </div>
+            <div class="col-sm-6 col-md-3">
+              <label class="form-label fw-semibold small">Random Seed <span class="text-muted">(blank = random)</span></label>
+              <input type="number" class="form-control" id="random-seed" placeholder="e.g. 42" min="0"/>
+            </div>
+          </div>
+
+          <hr/>
+
+          <div class="row g-3 align-items-start">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Model</label>
+              <select class="form-select" id="model-sel">
+                {% for m in models %}
+                  <option value="{{ m }}" {% if m == 'Gaussian Process Regression' %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold small">Strategy</label>
+              <select class="form-select" id="strategy-sel">
+                {% for s in strategies %}
+                  <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4" id="sigma-container">
+              <label class="form-label fw-semibold small">
+                <span id="sigma-label">σ / κ</span> factor: <strong id="sigma-val">2.0</strong>
+              </label>
+              <input type="range" class="form-range" id="sigma-slider" min="0" max="10" step="0.1" value="2"/>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-warning btn-lg flex-fill" id="btn-run">
+              <i class="bi bi-calculator me-2"></i>Run Benchmarking
+            </button>
+            <button class="btn btn-outline-warning btn-lg" id="btn-compare" title="Run all models and compare">
+              <i class="bi bi-bar-chart-steps me-1"></i>Compare All Models
+            </button>
+          </div>
+
+          <!-- Progress -->
+          <div id="sl-progress-area" class="mt-3 d-none">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <span class="fw-semibold small" id="sl-status-text">Preparing…</span>
+              <div class="progress flex-grow-1" style="height:12px">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning"
+                     id="sl-progress-bar" style="width:0%"></div>
+              </div>
+              <span class="small fw-semibold" id="sl-progress-label">0 / 0</span>
+            </div>
+            <div id="sl-log" class="sl-log"></div>
+          </div>
+
+          <!-- Live plot -->
+          <div id="live-plot-area" class="mt-3 d-none text-center">
+            <h6 class="text-muted mb-2">Live Progress</h6>
+            <img id="live-plot-img" class="img-fluid rounded shadow-sm" alt="Live plot"/>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- /accB -->
+
+    <!-- ── Section C: Results ───────────────────────────────────────────── -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#accC">
+          <i class="bi bi-clipboard-data me-2"></i>Results
+        </button>
+      </h2>
+      <div id="accC" class="accordion-collapse collapse" data-bs-parent="#benchAccordion">
+        <div class="accordion-body">
+
+          <div id="results-summary" class="d-none mb-3">
+            <div class="row g-2" id="result-badges"></div>
+          </div>
+
+          <div class="d-flex gap-2 mb-3 flex-wrap">
+            <button class="btn btn-warning" id="btn-download">
+              <i class="bi bi-download me-1"></i>Download CSV Log
+            </button>
+            <button class="btn btn-outline-warning" id="btn-pdf">
+              <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF Report
+            </button>
+          </div>
+
+          <h6 class="fw-semibold">Performance Log:</h6>
+          <div class="table-scroll mb-4" id="results-table">
+            <p class="text-muted">Run the benchmarking to see results.</p>
+          </div>
+
+          <h6 class="fw-semibold">Result Plots:</h6>
+          <div id="result-plots"></div>
+
+        </div>
+      </div>
+    </div><!-- /accC -->
+
+    <!-- ── Section D: Model Comparison ────────────────────────────────── -->
+    <div class="accordion-item" id="accD-item" style="display:none">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#accD">
+          <i class="bi bi-bar-chart-steps me-2"></i>Model Comparison
+        </button>
+      </h2>
+      <div id="accD" class="accordion-collapse collapse" data-bs-parent="#benchAccordion">
+        <div class="accordion-body">
+          <div id="cmp-status" class="mb-2 small fw-semibold text-muted"></div>
+          <div class="progress mb-3" style="height:10px" id="cmp-progress-wrap">
+            <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated"
+                 id="cmp-progress-bar" style="width:0%"></div>
+          </div>
+          <div id="cmp-plot-area" class="text-center mb-3"></div>
+          <div id="cmp-table-area"></div>
+        </div>
+      </div>
+    </div><!-- /accD -->
+
+  </div><!-- /benchAccordion -->
+</div><!-- /tab-bench -->
+
+</div><!-- /container -->
+
+<!-- Toast notifications -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+  <div id="toast-box" class="toast align-items-center text-white border-0" role="alert">
+    <div class="d-flex">
+      <div class="toast-body" id="toast-body"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

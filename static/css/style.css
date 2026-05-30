@@ -1,0 +1,212 @@
+/* ── Meta-Design Benchmarking — Styles ──────────────────────────────────── */
+
+:root {
+  --brand:       #1a3a5c;
+  --brand-mid:   #2563a8;
+  --accent:      #f59e0b;
+  --accent-dark: #d97706;
+  --bg:          #f4f6f9;
+  --card-bg:     #ffffff;
+  --border:      #dde3ec;
+  --text:        #1e293b;
+  --muted:       #64748b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* ── Navbar ── */
+.navbar {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-mid) 100%);
+  padding: 0.65rem 1.25rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+.navbar-brand { font-size: 1.2rem; font-weight: 700; letter-spacing: .3px; }
+
+/* ── Tab bar ── */
+.tab-bar {
+  background: var(--brand);
+  border-bottom: 3px solid var(--accent);
+  padding: 0 1rem;
+}
+.tab-bar .nav-link {
+  color: rgba(255,255,255,.65);
+  font-weight: 500;
+  padding: .65rem 1.1rem;
+  border: none;
+  border-radius: 0;
+  transition: color .18s, background .18s;
+}
+.tab-bar .nav-link:hover   { color: #fff; background: rgba(255,255,255,.1); }
+.tab-bar .nav-link.active  {
+  color: #fff;
+  background: transparent;
+  border-bottom: 3px solid var(--accent);
+  margin-bottom: -3px;
+}
+
+/* ── Main content ── */
+.main-content { padding: 1.25rem 1.5rem; }
+
+/* ── Tab panels ── */
+.tab-panel         { display: none; }
+.tab-panel.active  { display: block; }
+
+/* ── Cards ── */
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.card-header {
+  background: #f0f4fa;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: .88rem;
+  padding: .55rem .9rem;
+}
+.section-header { cursor: default; }
+.collapsed-header { cursor: pointer; }
+.collapsed-header:hover { background: #e4ecf7; }
+
+/* ── Drop zone ── */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 2rem 1rem;
+  text-align: center;
+  background: #f8fafd;
+  transition: border-color .2s, background .2s;
+  cursor: pointer;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--brand-mid);
+  background: #eef4ff;
+}
+
+/* ── Table scroll ── */
+.table-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 420px;
+}
+table.data-table {
+  font-size: .8rem;
+  white-space: nowrap;
+}
+table.data-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  padding: .4rem .6rem;
+  z-index: 2;
+}
+table.data-table tbody td {
+  padding: .3rem .6rem;
+  border-bottom: 1px solid #eceff4;
+}
+table.data-table tbody tr:hover { background: #f0f6ff; }
+
+/* ── Info pre ── */
+.info-pre {
+  background: #1e293b;
+  color: #94a3b8;
+  padding: 1rem;
+  border-radius: 6px;
+  font-size: .78rem;
+  overflow: auto;
+  max-height: 400px;
+}
+
+/* ── Accordion ── */
+.accordion-button {
+  font-weight: 600;
+  font-size: .92rem;
+  background: #f0f4fa;
+  color: var(--text);
+}
+.accordion-button:not(.collapsed) {
+  background: #e4ecf7;
+  color: var(--brand);
+  box-shadow: none;
+}
+.accordion-button::after { filter: none; }
+
+/* ── Target controls ── */
+.target-ctrl-row {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .5rem .7rem;
+  margin-bottom: .45rem;
+  background: #fafbfe;
+  font-size: .83rem;
+}
+.target-ctrl-row .col-label {
+  font-weight: 600;
+  color: var(--brand);
+  font-size: .82rem;
+  margin-bottom: .3rem;
+}
+.target-ctrl-row .form-check-label { font-size: .82rem; }
+.target-ctrl-row input[type="number"] { max-width: 110px; }
+.target-ctrl-row .thresh-value { display: none; }
+.target-ctrl-row .thresh-value.visible { display: block; }
+
+/* ── Progress / Log ── */
+.sl-log {
+  background: #1e293b;
+  color: #94a3b8;
+  border-radius: 6px;
+  padding: .65rem .9rem;
+  font-size: .78rem;
+  font-family: 'Courier New', monospace;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.sl-log .log-ok   { color: #4ade80; }
+.sl-log .log-info { color: #60a5fa; }
+.sl-log .log-warn { color: #fbbf24; }
+.sl-log .log-err  { color: #f87171; }
+
+/* ── Result badges ── */
+.result-badge-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  text-align: center;
+}
+.result-badge-card .stat-val {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--brand-mid);
+}
+.result-badge-card .stat-lbl {
+  font-size: .75rem;
+  color: var(--muted);
+  margin-top: .1rem;
+}
+
+/* ── Active info btn ── */
+.btn-group .btn.btn-warning { background: #fef3c7; border-color: var(--accent); color: #92400e; }
+.btn-group .btn.btn-warning.active-info-btn,
+.btn-group .btn.btn-warning:active { background: var(--accent); color: #fff; border-color: var(--accent-dark); }
+
+/* ── Buttons ── */
+.btn-warning { background: var(--accent); border-color: var(--accent-dark); color: #fff; font-weight: 600; }
+.btn-warning:hover { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+.btn-success { font-weight: 600; }
+.btn-info    { font-weight: 600; }
+
+/* ── Plot output img ── */
+#plot-output img, #live-plot-img { max-width: 100%; border-radius: 6px; }
+#result-plots img { max-width: 100%; border-radius: 6px; margin-bottom: 1rem; }
